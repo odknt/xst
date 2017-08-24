@@ -542,6 +542,11 @@ static void *xmalloc(size_t);
 static void *xrealloc(void *, size_t);
 static char *xstrdup(char *);
 
+static void preeditstartcallback(XIC, XPointer, XPointer);
+static void preeditdonecallback(XIC, XPointer, XPointer);
+static void preeditdrawcallback(XIC, XPointer, XIMPreeditDrawCallbackStruct *);
+static void preeditcaretcallback(XIC, XPointer, XIMPreeditCaretCallbackStruct *);
+
 static void usage(void);
 
 static void (*handler[LASTEvent])(XEvent *) = {
@@ -3790,6 +3795,8 @@ xinit(void)
 	Window parent;
 	pid_t thispid = getpid();
 	XColor xmousefg, xmousebg;
+	XIMCallback xcb[4];
+	XVaNestedList p_attr;
 
 	if (!(xw.dpy = XOpenDisplay(NULL)))
 		die("Can't open display\n");
@@ -3890,9 +3897,20 @@ xinit(void)
 			}
 		}
 	}
-	xw.xic = XCreateIC(xw.xim, XNInputStyle, XIMPreeditNothing
+	xcb[0].client_data = NULL; xcb[0].callback = (XIMProc)preeditstartcallback;
+	xcb[1].client_data = NULL; xcb[1].callback = (XIMProc)preeditdonecallback;
+	xcb[2].client_data = NULL; xcb[2].callback = (XIMProc)preeditdrawcallback;
+	xcb[3].client_data = NULL; xcb[3].callback = (XIMProc)preeditcaretcallback;
+	p_attr = XVaCreateNestedList(0,
+								 XNPreeditStartCallback, &xcb[0],
+								 XNPreeditDoneCallback , &xcb[1],
+								 XNPreeditDrawCallback , &xcb[2],
+								 XNPreeditCaretCallback, &xcb[3],
+								 NULL);
+	xw.xic = XCreateIC(xw.xim, XNInputStyle, XIMPreeditCallbacks
 					   | XIMStatusNothing, XNClientWindow, xw.win,
-					   XNFocusWindow, xw.win, NULL);
+					   XNFocusWindow, xw.win, XNPreeditAttributes, p_attr,
+					   NULL);
 	if (xw.xic == NULL)
 		die("XCreateIC failed. Could not obtain input method.\n");
 
@@ -4730,6 +4748,50 @@ run(void)
 			}
 		}
 	}
+}
+
+void
+preeditstartcallback(XIC xic, XPointer client_data, XPointer data)
+{
+}
+
+void
+preeditdonecallback(XIC xic, XPointer client_data, XPointer data)
+{
+}
+
+void
+preeditdrawcallback(XIC xic, XPointer client_data,
+	XIMPreeditDrawCallbackStruct *data)
+{
+	int i;
+	size_t l;
+	char *buf;
+
+	if (data->text) {
+		if (data->text->encoding_is_wchar) {
+			l = wcstombs(NULL, data->text->string.wide_char, data->text->length);
+			buf = (char *)malloc(l);
+			wcstombs(buf, data->text->string.wide_char, data->text->length);
+		} else {
+			buf = data->text->string.multi_byte;
+		}
+		if (data->chg_length > 0)
+			for (i = 0; i < data->chg_length; i++)
+				ttysend("\b", 1);
+		ttysend(buf, strlen(buf));
+		if (data->text->encoding_is_wchar)
+			free(buf);
+	} else {
+		for (i = 0; i < data->chg_length; i++)
+			ttysend("\b", 1);
+	}
+}
+
+void
+preeditcaretcallback(XIC xic, XPointer client_data,
+		XIMPreeditCaretCallbackStruct *data)
+{
 }
 
 void
