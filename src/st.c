@@ -217,6 +217,11 @@ enum selection_snap {
 	SNAP_LINE = 2
 };
 
+enum input_style {
+	ROOT = 0,
+	OVER_THE_SPOT = 1
+};
+
 int cursorblinkstate = 0;
 
 typedef unsigned char uchar;
@@ -4818,6 +4823,8 @@ xrdb_load(void)
 		XRESOURCE_LOAD_FLOAT("chscale", chscale);
 
 		XRESOURCE_LOAD_CHAR("prompt_char", prompt_char);
+
+		XRESOURCE_LOAD_INTEGER("imstyle", imstyle);
 
 		if (!xrdb_overrides_alpha)
 			XRESOURCE_LOAD_INTEGER("opacity", alpha);
